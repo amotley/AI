@@ -5,13 +5,29 @@ import resource
 import time
 import heapq
 
+#Direction Enum
+class Direction:
+    Up = "Up"
+    Down = "Down"
+    Left = "Left"
+    Right = "Right"
+
+#Node class
+class Node:
+    def __init__(self, board, parent, depth, path):
+        self.board = board
+        self.parent = parent
+        self.depth = depth
+        self.path = path
+
+#Board class
 class Board:
     
     hashOfManhattenIndices = [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1),(2,2)]
 
     def __init__(self, currentState, zeroIndex):
-        self.currentState = copy.deepcopy(currentState)
-        self.zeroIndex = copy.deepcopy(zeroIndex)
+        self.currentState = currentState[:]
+        self.zeroIndex = zeroIndex
     
     def isWinner(self):
         return str(self.currentState) == "['0', '1', '2', '3', '4', '5', '6', '7', '8']"
@@ -27,49 +43,107 @@ class Board:
                 d = d + mdHorizontal + mdVertial
             i = i + 1
         return d
-
-    def moveUp(self):
-        if self.zeroIndex < 3:
-            return None
-        upValue = self.currentState[self.zeroIndex - 3]
-        self.currentState[self.zeroIndex] = upValue
-        self.currentState[self.zeroIndex - 3] = "0"
-        self.zeroIndex = self.zeroIndex - 3
+            
+    def move(self, direction):
+        swapIndex = 0
+        if direction == Direction.Up:
+            swapIndex = self.zeroIndex - 3
+            if self.zeroIndex < 3:
+                return None
+        elif direction == Direction.Down:
+            swapIndex = self.zeroIndex + 3
+            if self.zeroIndex > 5:
+                return None
+        elif direction == Direction.Left:
+            swapIndex = self.zeroIndex - 1
+            if self.zeroIndex == 0 or self.zeroIndex == 3 or self.zeroIndex == 6:
+                return None
+        elif direction == Direction.Right:
+            swapIndex = self.zeroIndex + 1
+            if self.zeroIndex == 2 or self.zeroIndex == 5 or self.zeroIndex == 8:
+                return None
+        swapValue = self.currentState[swapIndex]
+        self.currentState[self.zeroIndex] = swapValue
+        self.currentState[swapIndex] = "0"
+        self.zeroIndex = swapIndex
         return self
 
-    def moveDown(self):
-        if self.zeroIndex > 5:
-            return None
-        downValue = self.currentState[self.zeroIndex + 3]
-        self.currentState[self.zeroIndex] = downValue
-        self.currentState[self.zeroIndex + 3] = "0"
-        self.zeroIndex = self.zeroIndex + 3
-        return self
+def bfs(initialBoard):
+    #Initialize frontier queue and visited dictionary
+    initialNode = Node(initialBoard, None, 0, "")
+    frontier = Queue.Queue()
+    frontier.put(initialNode)
+    visited = {}
+    visited[str(initialNode.board.currentState)] = initialNode
+    maxDepth = [0]
+    nodesExpanded = 0
+    
+    #while frontier is not empty, check and expand
+    while frontier.empty != True:
+        #get Node from the frontier
+        currentNode = frontier.get()
+        
+        #check if Node is a winner
+        if checkWinner(currentNode, nodesExpanded, maxDepth[0]):
+            return
+    
+        #add UDLR children to the frontier if they haven't already been visited
+        nodesExpanded = nodesExpanded + 1
+        directionOrder = [Direction.Up, Direction.Down, Direction.Left, Direction.Right]
+        for direction in directionOrder:
+            addChild("bfs", direction, frontier, visited, currentNode, maxDepth)
 
-    def moveLeft(self):
-        if self.zeroIndex == 0 or self.zeroIndex == 3 or self.zeroIndex == 6:
-            return None
-        leftValue = self.currentState[self.zeroIndex - 1]
-        self.currentState[self.zeroIndex] = leftValue
-        self.currentState[self.zeroIndex - 1] = "0"
-        self.zeroIndex = self.zeroIndex - 1
-        return self
+def dfs(initialBoard):
+    #Initialize frontier stack and visited dictionary
+    initialNode = Node(initialBoard, None, 0, "")
+    frontier = []
+    frontier.append(initialNode)
+    visited = {}
+    visited[str(initialNode.board.currentState)] = initialNode
+    maxDepth = [0]
+    nodesExpanded = 0
+    
+    #while frontier is not empty, check and expand
+    while len(frontier) != 0:
+        currentNode = frontier.pop()
+        
+        #check if Node is a winner
+        if checkWinner(currentNode, nodesExpanded, maxDepth[0]):
+            return
+        
+        #add RLDU children to the frontier if they haven't already been visited
+        nodesExpanded = nodesExpanded + 1
+        directionOrder = [Direction.Right, Direction.Left, Direction.Down, Direction.Up]
+        for direction in directionOrder:
+            addChild("dfs", direction, frontier, visited, currentNode, maxDepth)
 
-    def moveRight(self):
-        if self.zeroIndex == 2 or self.zeroIndex == 5 or self.zeroIndex == 8:
-            return None
-        rightValue = self.currentState[self.zeroIndex + 1]
-        self.currentState[self.zeroIndex] = rightValue
-        self.currentState[self.zeroIndex + 1] = "0"
-        self.zeroIndex = self.zeroIndex + 1
-        return self
-
-class Node:
-    def __init__(self, board, parent, depth, path):
-        self.board = board
-        self.parent = parent
-        self.depth = depth
-        self.path = path
+def ast(initialBoard):
+    #Initialize frontier priority queue and visited dictionary
+    initialNode = Node(initialBoard, None, 0, "")
+    initialNodeHeuristic = initialBoard.manhattenDistance()
+    frontier = []
+    heapq.heappush(frontier, (initialNodeHeuristic, initialNode))
+    visited = {}
+    visited[str(initialNode.board.currentState)] = initialNode
+    maxDepth = [0]
+    nodesExpanded = 0
+    
+    #while frontier is not empty:
+    #check for winner
+    #else find children in UDLR order and push children
+    while len(frontier) != 0:
+        currentNodeTuple = heapq.heappop(frontier)
+        currentNode = currentNodeTuple[1]
+        
+        #check if Node is a winner
+        if checkWinner(currentNode, nodesExpanded, maxDepth[0]):
+            return
+        
+        #add UDLR children to the frontier if they haven't already been visited
+        nodesExpanded = nodesExpanded + 1
+        directionOrder = [Direction.Up, Direction.Down, Direction.Left, Direction.Right]
+        for direction in directionOrder:
+            addChild("ast", direction, frontier, visited, currentNode, maxDepth)
 
 #output to output.txt file
 def createOutputFile(path, cost, nodes, depth, maxDepth, runningTime, maxRam):
@@ -89,261 +163,47 @@ def createOutputFile(path, cost, nodes, depth, maxDepth, runningTime, maxRam):
     f.write(runningTime + "\n")
     f.write(maxRamUsage + "\n")
 
-def bfs(initialBoard):
-    #UDLR order
-    #Create initial Node
-    initialNode = Node(initialBoard, None, 0, "")
-    
-    #Create Frontier Queue
-    frontier = Queue.Queue()
-    
-    #Create Dictionary to be used to keep track of nodes already visited
-    visited = {}
-    #add currentNode to 'visited' hash table
-    visited[str(initialNode.board.currentState)] = initialNode
-    
-    #Enqueue the initial Node into the Frontier
-    frontier.put(initialNode)
-    
-    #while frontier is not empty:
-    #check for winner
-    #else find children in UDLR order and enqueue children
-    maxDepth = 0
-    nodesExpanded = 0
-    while frontier.empty != True:
-        currentNode = frontier.get()
-        if currentNode.board.isWinner():
-            print "winner!"
-            print str(currentNode.board.currentState)
-            #find the path by traversing up the parents
-            path = []
-            depthAndCost = currentNode.depth
-            runningTime = time.time() - start_time
-            ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            while currentNode.parent != None:
-                path.insert(0, currentNode.path)
-                currentNode = currentNode.parent
-            return createOutputFile(str(path), depthAndCost, nodesExpanded, depthAndCost, maxDepth, runningTime, ram)
-    
-        #add UDLR children to the frontier if they haven't already been visited
-        nodesExpanded = nodesExpanded + 1
-        currentBoardState = currentNode.board.currentState
-        currentBoardZeroIndex = currentNode.board.zeroIndex
-        
-        upCopy = Board(currentBoardState, currentBoardZeroIndex)
-        upChild = upCopy.moveUp()
-        if upChild != None:
-            if str(upChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                upChildNode = Node(upChild, currentNode, currentNode.depth + 1, "Up")
-                frontier.put(upChildNode)
-                visited[str(upChild.currentState)] = upChildNode
-        
-        downCopy = Board(currentBoardState, currentBoardZeroIndex)
-        downChild = downCopy.moveDown()
-        if downChild != None:
-            if str(downChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                downChildNode = Node(downChild, currentNode, currentNode.depth + 1, "Down")
-                frontier.put(downChildNode)
-                visited[str(downChild.currentState)] = downChildNode
-        
-        leftCopy = Board(currentBoardState, currentBoardZeroIndex)
-        leftChild = leftCopy.moveLeft()
-        if leftChild != None:
-            if str(leftChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                leftChildNode = Node(leftChild, currentNode, currentNode.depth + 1, "Left")
-                frontier.put(leftChildNode)
-                visited[str(leftChild.currentState)] = leftChildNode
-        
-        rightCopy = Board(currentBoardState, currentBoardZeroIndex)
-        rightChild = rightCopy.moveRight()
-        if rightChild != None:
-            if str(rightChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                rightChildNode = Node(rightChild, currentNode, currentNode.depth + 1, "Right")
-                frontier.put(rightChildNode)
-                visited[str(rightChild.currentState)] = rightChildNode
+#check whether a node is a winner
+def checkWinner(currentNode, nodesExpanded, maxDepth):
+    if currentNode.board.isWinner():
+        print "winner!"
+        print str(currentNode.board.currentState)
+        #find the path by traversing up the parents
+        path = []
+        depthAndCost = currentNode.depth
+        runningTime = time.time() - start_time
+        ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        while currentNode.parent != None:
+            path.insert(0, currentNode.path)
+            currentNode = currentNode.parent
+        createOutputFile(str(path), depthAndCost, nodesExpanded, depthAndCost, maxDepth, runningTime, ram)
+        return True
+    return False
 
-def dfs(initialBoard):
-    #UDLR order
-    #Create initial Node
-    initialNode = Node(initialBoard, None, 0, "")
-    
-    #Create Frontier Stack implemented as a list
-    frontier = []
-    
-    #Create Dictionary to be used to keep track of nodes already visited
-    visited = {}
-    #add currentNode to 'visited' hash table
-    visited[str(initialNode.board.currentState)] = initialNode
-    
-    #Enqueue the initial Node into the Frontier
-    frontier.append(initialNode)
-    
-    #while frontier is not empty:
-    #check for winner
-    #else find children in UDLR order and enqueue children
-    maxDepth = 0
-    nodesExpanded = 0
-    while len(frontier) != 0:
-        currentNode = frontier.pop()
-        if currentNode.board.isWinner():
-            print "winner!"
-            print str(currentNode.board.currentState)
-            #find the path by traversing up the parents
-            path = []
-            depthAndCost = currentNode.depth
-            runningTime = time.time() - start_time
-            ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            while currentNode.parent != None:
-                path.insert(0, currentNode.path)
-                currentNode = currentNode.parent
-            return createOutputFile(str(path), depthAndCost, nodesExpanded, depthAndCost, maxDepth, runningTime, ram)
-        
-        #add UDLR children to the frontier if they haven't already been visited
-        nodesExpanded = nodesExpanded + 1
-        currentBoardState = currentNode.board.currentState
-        currentBoardZeroIndex = currentNode.board.zeroIndex
-        
-        rightCopy = Board(currentBoardState, currentBoardZeroIndex)
-        rightChild = rightCopy.moveRight()
-        if rightChild != None:
-            if str(rightChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                rightChildNode = Node(rightChild, currentNode, currentNode.depth + 1, "Right")
-                frontier.append(rightChildNode)
-                visited[str(rightChild.currentState)] = rightChildNode
-
-
-        leftCopy = Board(currentBoardState, currentBoardZeroIndex)
-        leftChild = leftCopy.moveLeft()
-        if leftChild != None:
-            if str(leftChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                leftChildNode = Node(leftChild, currentNode, currentNode.depth + 1, "Left")
-                frontier.append(leftChildNode)
-                visited[str(leftChild.currentState)] = leftChildNode
-
-        downCopy = Board(currentBoardState, currentBoardZeroIndex)
-        downChild = downCopy.moveDown()
-        if downChild != None:
-            if str(downChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                downChildNode = Node(downChild, currentNode, currentNode.depth + 1, "Down")
-                frontier.append(downChildNode)
-                visited[str(downChild.currentState)] = downChildNode
-
-        upCopy = Board(currentBoardState, currentBoardZeroIndex)
-        upChild = upCopy.moveUp()
-        if upChild != None:
-            if str(upChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                upChildNode = Node(upChild, currentNode, currentNode.depth + 1, "Up")
-                frontier.append(upChildNode)
-                visited[str(upChild.currentState)] = upChildNode
-
-def ast(initialBoard):
-    #Create initial Node
-    initialNode = Node(initialBoard, None, 0, "")
-    initialNodeHeuristic = initialBoard.manhattenDistance()
-    
-    #Create Frontier Priority Queue
-    frontier = []
-    
-    #Create Dictionary to be used to keep track of nodes already visited
-    visited = {}
-    #add currentNode and its heuristic value (Manhatten distance) to 'visited' hash table
-    visited[str(initialNode.board.currentState)] = (initialNodeHeuristic, initialNode)
-    
-    #Push the initial Node into the Frontier
-    heapq.heappush(frontier, (initialNodeHeuristic, initialNode))
-    
-    #while frontier is not empty:
-    #check for winner
-    #else find children in UDLR order and push children
-    maxDepth = 0
-    nodesExpanded = 0
-    while len(frontier) != 0:
-        currentNodeTuple = heapq.heappop(frontier)
-        currentNode = currentNodeTuple[1]
-        if currentNode.board.isWinner():
-            print "winner!"
-            print str(currentNode.board.currentState)
-            #find the path by traversing up the parents
-            path = []
-            depthAndCost = currentNode.depth
-            runningTime = time.time() - start_time
-            ram = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            while currentNode.parent != None:
-                path.insert(0, currentNode.path)
-                currentNode = currentNode.parent
-            return createOutputFile(str(path), depthAndCost, nodesExpanded, depthAndCost, maxDepth, runningTime, ram)
-        
-        #add UDLR children to the frontier if they haven't already been visited
-        nodesExpanded = nodesExpanded + 1
-        currentBoardState = currentNode.board.currentState
-        currentBoardZeroIndex = currentNode.board.zeroIndex
-
-        rightCopy = Board(currentBoardState, currentBoardZeroIndex)
-        rightChild = rightCopy.moveRight()
-        if rightChild != None:
-            rightChildHeuristic = rightChild.manhattenDistance() + currentNode.depth + 1
-            if str(rightChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                rightChildNode = Node(rightChild, currentNode, currentNode.depth + 1, "Right")
-                heapq.heappush(frontier, (rightChildHeuristic, rightChildNode))
-                visited[str(rightChild.currentState)] = (rightChildHeuristic, rightChildNode)
-
-        leftCopy = Board(currentBoardState, currentBoardZeroIndex)
-        leftChild = leftCopy.moveLeft()
-        if leftChild != None:
-            leftChildHeuristic = leftChild.manhattenDistance() + currentNode.depth + 1
-            if str(leftChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                leftChildNode = Node(leftChild, currentNode, currentNode.depth + 1, "Left")
-                heapq.heappush(frontier, (leftChildHeuristic, leftChildNode))
-                visited[str(leftChild.currentState)] = (leftChildHeuristic, leftChildNode)
-
-        downCopy = Board(currentBoardState, currentBoardZeroIndex)
-        downChild = downCopy.moveDown()
-        if downChild != None:
-            downChildHeuristic = downChild.manhattenDistance() + currentNode.depth + 1
-            if str(downChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                downChildNode = Node(downChild, currentNode, currentNode.depth + 1, "Down")
-                heapq.heappush(frontier, (downChildHeuristic, downChildNode))
-                visited[str(downChild.currentState)] = (downChildHeuristic, downChildNode)
-
-        upCopy = Board(currentBoardState, currentBoardZeroIndex)
-        upChild = upCopy.moveUp()
-        if upChild != None:
-            upChildHeuristic = upChild.manhattenDistance() + currentNode.depth + 1
-            if str(upChild.currentState) not in visited:
-                if currentNode.depth + 1 > maxDepth:
-                    maxDepth = currentNode.depth + 1
-                upChildNode = Node(upChild, currentNode, currentNode.depth + 1, "Up")
-                heapq.heappush(frontier, (upChildHeuristic, upChildNode))
-                visited[str(upChild.currentState)] = (upChildHeuristic, upChildNode)
-    
-
-
-
+#Add a child to a search tree
+def addChild(searchType, childType, frontier, visited, currentNode, maxDepth):
+    currentBoardState = currentNode.board.currentState
+    currentBoardZeroIndex = currentNode.board.zeroIndex
+    copy = Board(currentBoardState, currentBoardZeroIndex)
+    child = copy.move(childType)
+    if child != None:
+        if str(child.currentState) not in visited:
+            if currentNode.depth + 1 > maxDepth[0]:
+                maxDepth[0] = currentNode.depth + 1
+            childNode = Node(child, currentNode, currentNode.depth + 1, childType)
+            if searchType == "bfs":
+                #frontier is a queue
+                frontier.put(childNode)
+            elif searchType == "dfs":
+                #frontier is a stack
+                frontier.append(childNode)
+            elif searchType == "ast":
+                #frontier is a priority queue
+                childPriority = child.manhattenDistance() + currentNode.depth + 1
+                heapq.heappush(frontier, (childPriority, childNode))
+            visited[str(child.currentState)] = childNode
 
 #python driver.py bfs 0,8,7,6,5,4,3,2,1
-#terminal
 start_time = time.time()
 actionNameArgument = sys.argv[1]
 boardArgument = sys.argv[2]
@@ -358,4 +218,3 @@ elif actionNameArgument == "ast":
     ast(board)
 else:
     print "invalid arguments"
-
