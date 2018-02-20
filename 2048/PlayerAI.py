@@ -21,10 +21,7 @@ class PlayerAI(BaseAI):
         #If grid state is terminal, return the evaluated grid value
         timeAlmostUp = (time.clock() - self.prevTime) > (timeLimit - buffer)
         if not grid.canMove():
-            return (None, self.Eval(grid), 0)
-        
-        #if timeAlmostUp:
-        #print "time is almost up depth: " + str(depth)
+            return (None, self.Heuristic(grid), 0)
         
         if timeAlmostUp or depth >= 16:
             return (None, self.Heuristic(grid), 0)
@@ -45,18 +42,14 @@ class PlayerAI(BaseAI):
                     break
                 if maxValue > alpha:
                     alpha = maxValue
-        
-        #print "returning maxValue of: " + str(maxValue)
+    
         return (maxChild, maxValue, maxMove)
 
     def Minimize(self, grid, alpha, beta, depth):
         #If grid state is terminal, return the evaluated grid value
         timeAlmostUp = (time.clock() - self.prevTime) > (timeLimit - buffer)
         if not grid.canMove():
-            return (None, self.Eval(grid), 0)
-        
-        #if timeAlmostUp:
-        #print "time is almost up depth: " + str(depth)
+            return (None, self.Heuristic(grid), 0)
         
         if timeAlmostUp or depth >= 8:
             return (None, self.Heuristic(grid), 0)
@@ -95,11 +88,74 @@ class PlayerAI(BaseAI):
                         beta = minValue
                 i = i + 1
     
-        #print "returning minValue of: " + str(minValue)
         return (minChild, minValue, minMove)
 
     def Eval(self, grid):
         return grid.getMaxTile()
 
     def Heuristic(self, grid):
-        return len(grid.getAvailableCells())
+        maxTileBonus = 0
+        if grid.getMaxTile() >= 1024:
+            maxTileBonus = grid.getMaxTile()
+        return self.CalculateMonotonicity(grid)*28 - self.CalculateEmptyCellPenalty(grid)*28 + maxTileBonus
+
+    def CalculateEmptyCellPenalty(self, grid):
+        if len(grid.getAvailableCells()) < 4:
+            return 4
+        return 0
+
+    def CalculateMonotonicity(self, grid):
+        #For each row (left->right) and col(up->down)
+        #calculate number of tiles in increasing order, and decreasing order
+        #assign score for each row, col based on max (numIncreasing, numDecreasing)
+        matrix = grid.map
+        row = 0
+        totalPoints = 0
+        totalPointsDecreasingRows = 0
+        totalPointsIncreasingRows = 0
+        totalPointsDecreasingCols = 0
+        totalPointsIncreasingCols = 0
+        while row < 4:
+            numIncreasingRow = 0
+            numDecreasingRow = 0
+            numIncreasingCol = 0
+            numDecreasingCol = 0
+            col = 0
+            prevRow = matrix[row][col]
+            prevCol = matrix[col][row]
+            while col < 3:
+                if matrix[row][col + 1] <= prevRow:
+                    numDecreasingRow = numDecreasingRow + 1
+                    #extra point if the tiles are the same (and not 0)
+                    if matrix[row][col + 1] == prevRow and matrix[row][col + 1] != 0:
+                        numDecreasingRow = numDecreasingRow + 1
+                if matrix[row][col + 1] >= prevRow:
+                    numIncreasingRow = numIncreasingRow + 1
+                        #extra point if the tiles are the same (and not 0)
+                    if matrix[row][col + 1] == prevRow and matrix[row][col + 1] != 0:
+                        numIncreasingRow = numIncreasingRow + 1
+                if matrix[col + 1][row] <= prevCol:
+                    numDecreasingCol = numDecreasingCol + 1
+                    #extra point if the tiles are the same (and not 0)
+                    if matrix[col + 1][row] == prevCol and matrix[col + 1][row] != 0:
+                        numDecreasingCol = numDecreasingCol + 1
+                if matrix[col + 1][row] >= prevCol:
+                    numIncreasingCol = numIncreasingCol + 1
+                    #extra point if the tiles are the same (and not 0)
+                    if matrix[col + 1][row] == prevCol and matrix[col + 1][row] != 0:
+                        numIncreasingCol = numIncreasingCol + 1
+                prevRow = matrix[row][col + 1]
+                prevCol = matrix[col + 1][row]
+                col = col + 1
+            totalPointsDecreasingRows = totalPointsDecreasingRows + numDecreasingRow
+            totalPointsIncreasingRows = totalPointsIncreasingRows + numIncreasingRow
+            totalPointsDecreasingCols = totalPointsDecreasingCols + numDecreasingCol
+            totalPointsIncreasingCols = totalPointsIncreasingCols + numIncreasingCol
+            row = row + 1
+        totalPoints = max(totalPointsDecreasingRows + totalPointsDecreasingCols, totalPointsIncreasingRows + totalPointsIncreasingCols)
+        #print "totalPoints" + str(totalPoints)
+        return totalPoints
+
+    def CalculateSmoothness(self, grid):
+        return 0
+
