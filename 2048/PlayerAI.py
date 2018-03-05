@@ -5,9 +5,11 @@ import sys
 
 # Time Limit Before Losing
 timeLimit = 0.2
-buffer = 0.05
+buffer = 0.025
 
 class PlayerAI(BaseAI):
+    
+    #nodesVisited = 0
     
     def getMove(self, grid):
         sys.setrecursionlimit(2000)
@@ -15,15 +17,17 @@ class PlayerAI(BaseAI):
         cells = grid.getAvailableCells()
         #Impliment Minimax algorithm
         (_, _, maxMove) = self.Maximize(grid.clone(), float('-inf'), float('inf'), 0)
+        #print str(self.nodesVisited)
         return maxMove
 
     def Maximize(self, grid, alpha, beta, depth):
+        #self.nodesVisited+=1
         #If grid state is terminal, return the evaluated grid value
         timeAlmostUp = (time.clock() - self.prevTime) > (timeLimit - buffer)
         if not grid.canMove():
             return (None, self.Heuristic(grid), 0)
         
-        if timeAlmostUp or depth >= 16:
+        if timeAlmostUp or depth >= 5:
             return (None, self.Heuristic(grid), 0)
         
         #initialize max child and max Value
@@ -46,12 +50,13 @@ class PlayerAI(BaseAI):
         return (maxChild, maxValue, maxMove)
 
     def Minimize(self, grid, alpha, beta, depth):
+        #self.nodesVisited+=1
         #If grid state is terminal, return the evaluated grid value
         timeAlmostUp = (time.clock() - self.prevTime) > (timeLimit - buffer)
         if not grid.canMove():
             return (None, self.Heuristic(grid), 0)
         
-        if timeAlmostUp or depth >= 8:
+        if timeAlmostUp or depth >= 5:
             return (None, self.Heuristic(grid), 0)
         
         #initialize min child and min Value
@@ -100,8 +105,16 @@ class PlayerAI(BaseAI):
         return self.CalculateMonotonicity(grid)*28 - self.CalculateEmptyCellPenalty(grid)*28 + maxTileBonus
 
     def CalculateEmptyCellPenalty(self, grid):
-        if len(grid.getAvailableCells()) < 4:
+        if len(grid.getAvailableCells()) == 4:
             return 4
+        if len(grid.getAvailableCells()) == 3:
+            return 10
+        if len(grid.getAvailableCells()) == 2:
+            return 20
+        if len(grid.getAvailableCells()) == 1:
+            return 50
+        if len(grid.getAvailableCells()) == 0:
+            return 75
         return 0
 
     def CalculateMonotonicity(self, grid):
@@ -129,21 +142,32 @@ class PlayerAI(BaseAI):
                     #extra point if the tiles are the same (and not 0)
                     if matrix[row][col + 1] == prevRow and matrix[row][col + 1] != 0:
                         numDecreasingRow = numDecreasingRow + 1
+                #extra points for large number on the edge
+                if col == 0 and prevRow >= 128:
+                    numDecreasingRow = numDecreasingRow + prevRow*.1
                 if matrix[row][col + 1] >= prevRow:
                     numIncreasingRow = numIncreasingRow + 1
-                        #extra point if the tiles are the same (and not 0)
+                    #extra point if the tiles are the same (and not 0)
                     if matrix[row][col + 1] == prevRow and matrix[row][col + 1] != 0:
                         numIncreasingRow = numIncreasingRow + 1
+                #extra points for large number on the edge
+                if col == 2 and matrix[row][col + 1] >= 128:
+                    numIncreasingRow = numIncreasingRow = matrix[row][col + 1]*.1
                 if matrix[col + 1][row] <= prevCol:
                     numDecreasingCol = numDecreasingCol + 1
                     #extra point if the tiles are the same (and not 0)
                     if matrix[col + 1][row] == prevCol and matrix[col + 1][row] != 0:
                         numDecreasingCol = numDecreasingCol + 1
+                #extra points for large number on the edge
+                if row == 0 and prevCol >= 128:
+                    numDecreasingRow = numDecreasingRow + prevCol*.1
                 if matrix[col + 1][row] >= prevCol:
                     numIncreasingCol = numIncreasingCol + 1
                     #extra point if the tiles are the same (and not 0)
                     if matrix[col + 1][row] == prevCol and matrix[col + 1][row] != 0:
                         numIncreasingCol = numIncreasingCol + 1
+                if row == 3 and matrix[col + 1][row] >= 128:
+                    numIncreasingCol = numIncreasingCol + matrix[col + 1][row]*.1
                 prevRow = matrix[row][col + 1]
                 prevCol = matrix[col + 1][row]
                 col = col + 1
@@ -152,7 +176,7 @@ class PlayerAI(BaseAI):
             totalPointsDecreasingCols = totalPointsDecreasingCols + numDecreasingCol
             totalPointsIncreasingCols = totalPointsIncreasingCols + numIncreasingCol
             row = row + 1
-        totalPoints = max(totalPointsDecreasingRows + totalPointsDecreasingCols, totalPointsIncreasingRows + totalPointsIncreasingCols)
+        totalPoints = max(totalPointsDecreasingRows + totalPointsDecreasingCols, totalPointsIncreasingRows + totalPointsIncreasingCols, totalPointsDecreasingRows + totalPointsIncreasingCols,totalPointsIncreasingRows + totalPointsDecreasingCols)
         #print "totalPoints" + str(totalPoints)
         return totalPoints
 
