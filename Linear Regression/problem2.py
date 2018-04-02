@@ -24,7 +24,7 @@ with open(inputArgument) as csvfile:
     for row in reader:
         d = Data(float(row[0]),float(row[1]),float(row[2]))
         dataList.append(d)
-        dataSize = dataSize + 1
+        dataSize = dataSize + 1.0
         sumAge = sumAge + float(row[0])
         sumWeight = sumWeight + float(row[1])
 
@@ -33,15 +33,16 @@ meanWeight = sumWeight/dataSize
 sumAgeSquared = 0.0
 sumWeightSquared = 0.0
 for d in dataList:
-    sumAgeSquared = sumAgeSquared + (float(row[0]))**2
-    sumWeightSquared = sumWeightSquared + (float(row[1]))**2
+    sumAgeSquared = sumAgeSquared + (float(d.age) - meanAge)**2
+    sumWeightSquared = sumWeightSquared + (float(d.weight) - meanWeight)**2
 
 #normalize the data
 normalizedDataList = []
-populationStandardDeviation_age = ((sumAgeSquared-meanAge)/dataSize)**(.5)
-populationStandardDeviation_weight = ((sumWeightSquared-meanWeight)/dataSize)**(.5)
+populationStandardDeviation_age = ((sumAgeSquared)/dataSize)**(.5)
+populationStandardDeviation_weight = ((sumWeightSquared)/dataSize)**(.5)
 for d in dataList:
-    d = Data(d.age/populationStandardDeviation_age, d.weight/populationStandardDeviation_weight, d.height)
+    d = Data((d.age-meanAge)/populationStandardDeviation_age, (d.weight-meanWeight)/populationStandardDeviation_weight, d.height)
+    print d.age, d.weight, d.height
     normalizedDataList.append(d)
 
 #try out the different learning rates
