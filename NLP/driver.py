@@ -6,7 +6,7 @@ import csv
 import re
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import SGDClassifier
-from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 def removeStopWords(stopWords, review):
     removedStopWords = []
@@ -22,7 +22,7 @@ def imdb_data_preprocess():
     stopWordsFileName = 'stopwords.en.txt'
     with open(stopWordsFileName) as f:
         stopWords = f.read().splitlines()
-            #negPath = "neg"
+    #negPath = "neg"
     negPath = train_path + "neg"
     allNegFiles = glob.glob(negPath + "/*.txt")
     #posPath = "pos"
@@ -60,10 +60,11 @@ if __name__ == "__main__":
         listOfReviewWords.append(",".join(map(str, l)))
     vector = CountVectorizer()
     data = vector.fit_transform(listOfReviewWords)
-    tfidfData = TfidfTransformer(use_idf=True).fit_transform(data)
+    tfidfVector = TfidfVectorizer()
+    tfidfData = tfidfVector.fit_transform(listOfReviewWords)
 
-    #testSetFileName = 'imdb_te.csv'
-    testSetFileName = test_path
+#testSetFileName = 'imdb_te.csv'
+testSetFileName = test_path
     d = pd.read_csv(testSetFileName, encoding = "ISO-8859-1")
     listOfTestReviews = d['text'].tolist()
     listOfTestReviewWords = []
@@ -72,10 +73,11 @@ if __name__ == "__main__":
         for word in re.split("\W+", r):
             l.append(word)
         listOfTestReviewWords.append(",".join(map(str, l)))
-    testVector = CountVectorizer(vocabulary=vector.vocabulary_)
+testVector = CountVectorizer(vocabulary=vector.vocabulary_)
     testData = testVector.fit_transform(listOfTestReviewWords)
-    tfidfTestData = TfidfTransformer(use_idf=True).fit_transform(testData)
-
+    tfidfTestVector = TfidfVectorizer(vocabulary=tfidfVector.vocabulary_)
+    tfidfTestData = tfidfTestVector.fit_transform(listOfTestReviewWords)
+    
     clf = SGDClassifier(loss="hinge", penalty="l1")
     clf.fit(data, listOfPolarities)
     unigramOutputName = 'unigram.output.txt'
@@ -84,16 +86,16 @@ if __name__ == "__main__":
     for t in testData:
         prediction = clf.predict(t)
         unigramWriter.writerow(prediction)
-
+    
     clftfidf = SGDClassifier(loss="hinge", penalty="l1")
     clftfidf.fit(tfidfData, listOfPolarities)
     unigramtfidfOutputName = 'unigramtfidf.output.txt'
     unigramtfidfOutput = open(unigramtfidfOutputName, "w")
     unigramtfidfWriter = csv.writer(unigramtfidfOutput)
     for t in tfidfTestData:
-        prediction = clf.predict(t)
+        prediction = clftfidf.predict(t)
         unigramtfidfWriter.writerow(prediction)
-
+    
     #create bigram
     listOfBigrams = []
     for w in listOfReviewWords:
@@ -104,35 +106,37 @@ if __name__ == "__main__":
         listOfBigrams.append(",".join(bigram))
     bigramVector = CountVectorizer()
     bigramData = bigramVector.fit_transform(listOfBigrams)
-    tfidfBigramData = TfidfTransformer(use_idf=True).fit_transform(bigramData)
+    tfidfBigramVector = TfidfVectorizer()
+    tfidfBigramData = tfidfBigramVector.fit_transform(listOfBigrams)
 
-    listOfTestBigrams = []
+listOfTestBigrams = []
     for w in listOfTestReviewWords:
         array = w.split(',')
         bigram = []
         for i in range(len(array)-1):
             bigram.append(array[i] + " " + array[i+1])
         listOfTestBigrams.append(",".join(bigram))
-    testBigramVector = CountVectorizer(vocabulary=bigramVector.vocabulary_)
+testBigramVector = CountVectorizer(vocabulary=bigramVector.vocabulary_)
     testBigramData = testBigramVector.fit_transform(listOfTestBigrams)
-    tfidfTestBigramData = TfidfTransformer(use_idf=True).fit_transform(testBigramData)
-
+    tfidfTestBigramVector = TfidfVectorizer(vocabulary=tfidfBigramVector.vocabulary_)
+    tfidfTestBigramData = tfidfTestBigramVector.fit_transform(listOfTestBigrams)
+    
     clfBigram = SGDClassifier(loss="hinge", penalty="l1")
     clfBigram.fit(bigramData, listOfPolarities)
     bigramOutputName = 'bigram.output.txt'
     bigramOutput = open(bigramOutputName, "w")
     bigramWriter = csv.writer(bigramOutput)
     for t in testBigramData:
-        prediction = clf.predict(t)
+        prediction = clfBigram.predict(t)
         bigramWriter.writerow(prediction)
-
+    
     clftfidfBigram = SGDClassifier(loss="hinge", penalty="l1")
     clftfidfBigram.fit(tfidfBigramData, listOfPolarities)
     bigramtfidfOutputName = 'bigramtfidf.output.txt'
     bigramtfidfOutput = open(bigramtfidfOutputName, "w")
     bigramWtfidfWriter = csv.writer(bigramtfidfOutput)
     for t in tfidfTestBigramData:
-        prediction = clf.predict(t)
+        prediction = clftfidfBigram.predict(t)
         bigramWtfidfWriter.writerow(prediction)
 
 
